@@ -824,7 +824,7 @@
 
     <div class="callout">
         <div class="callout-label">The headline number</div>
-        <p>V100 (2017): 125 TFLOPS FP16. B200 (2024): <strong>9 PFLOPS MX-FP4 (sparse)</strong>. That's roughly 70&times; more dense matmul on a single die in seven years &mdash; almost entirely from tensor-core extensions, not from Moore's law.</p>
+        <p>V100 (2017): 125 TFLOPS FP16. B200 (2024): <strong>9 PFLOPS MX-FP4 (dense)</strong>. That's roughly 70&times; more dense matmul on a single die in seven years &mdash; almost entirely from tensor-core extensions, not from Moore's law.</p>
     </div>
 </section>
 
@@ -1015,7 +1015,7 @@
         </div>
         <div class="diagram-panel accent-border">
             <h4>RTX 4090 / 4080 (consumer Ada)</h4>
-            <p><strong>FP8 path is fused off in the silicon.</strong> You get BF16/FP16/TF32/INT8 at full speed but no FP8 tensor speedup &mdash; software falls back to BF16 or emulates. The 4090's matmul ceiling is FP16/BF16 (~330 TFLOPS dense).</p>
+            <p>FP8 tensor cores are present (~660 TFLOPS dense FP8 on a 4090, 2&times; BF16) &mdash; AD102 silicon is the same family as L40S. What consumer Ada lacks is the Transformer Engine software stack and full datacenter driver/library support; you can hit FP8 via CUTLASS / Triton / TensorRT-LLM kernels directly.</p>
         </div>
     </div>
 
@@ -1054,8 +1054,11 @@
 
     <p>The shared block scale lets each 32-element block centre its dynamic range independently of every other block &mdash; so a 4-bit element can still represent a tensor whose values span many orders of magnitude across a layer, as long as <em>within any 32-element window</em> the spread is bounded.</p>
 
+    <h3>Two FP4 variants: MX-FP4 and NVFP4</h3>
+    <p>Blackwell's 5th-gen tensor cores accelerate <strong>both</strong> FP4 flavours. <strong>MX-FP4</strong> is the open OCP Microscaling format above (32-element block, 8-bit E8M0 power-of-two scale). <strong>NVFP4</strong> is NVIDIA's variant: <strong>16-element blocks</strong>, <strong>E4M3 block scale</strong> (with a per-tensor FP32 scale on top), giving finer-grained, higher-precision blocks at the cost of slightly more scale overhead. NVFP4 is what TensorRT-LLM and the Transformer Engine default to in 2026; MX-FP4 is what the rest of the ecosystem (vLLM, llama.cpp, OCP-aligned stacks) tends to target. Same hardware throughput either way.</p>
+
     <h3>2nd-gen Transformer Engine</h3>
-    <p>Handles the MX block scaling automatically: at quantisation time it picks per-block E8M0 scales, packs the 32 elements, and emits the right tensor-core instruction. The user keeps writing PyTorch.</p>
+    <p>Handles the MX / NVFP4 block scaling automatically: at quantisation time it picks per-block scales, packs the 16 or 32 elements, and emits the right tensor-core instruction. The user keeps writing PyTorch.</p>
 
     <h3>B200 headline numbers</h3>
     <div class="table-wrap">
@@ -1337,7 +1340,7 @@ sum = w0a0 + w3a3   <span style="color: var(--accent)">// 2&times; speed</span><
                 <option value="a100" selected>A100 SXM4 80 GB &middot; Ampere &middot; 3rd-gen TC</option>
                 <option value="a40">A40 48 GB &middot; Ampere &middot; 3rd-gen TC</option>
                 <option value="rtx3090">RTX 3090 24 GB &middot; Ampere &middot; 3rd-gen TC</option>
-                <option value="rtx4090">RTX 4090 24 GB &middot; Ada &middot; 4th-gen TC (no FP8)</option>
+                <option value="rtx4090">RTX 4090 24 GB &middot; Ada &middot; 4th-gen TC (FP8 capable)</option>
                 <option value="l40s">L40S 48 GB &middot; Ada &middot; 4th-gen TC (with FP8)</option>
                 <option value="h100">H100 SXM5 80 GB &middot; Hopper &middot; 4th-gen TC</option>
                 <option value="h200">H200 141 GB &middot; Hopper &middot; 4th-gen TC</option>
@@ -1353,7 +1356,7 @@ sum = w0a0 + w3a3   <span style="color: var(--accent)">// 2&times; speed</span><
                 <option value="fp16">FP16</option>
                 <option value="int8">INT8</option>
                 <option value="fp8">FP8 (E4M3 / E5M2)</option>
-                <option value="fp4">MX-FP4</option>
+                <option value="fp4">FP4 (MX-FP4 / NVFP4)</option>
                 <option value="sp_fp16">FP16 + 2:4 sparse</option>
                 <option value="sp_fp8">FP8 + 2:4 sparse</option>
             </select>
@@ -1377,7 +1380,7 @@ sum = w0a0 + w3a3   <span style="color: var(--accent)">// 2&times; speed</span><
             a100:   { arch:'Ampere',    fp32:19.5, tf32:156,  bf16:312,  fp16:312,  int8:624,   fp8:'em', fp4:'na', vram:80  },
             a40:    { arch:'Ampere',    fp32:37.4, tf32:74.8, bf16:149.7,fp16:149.7,int8:299.4, fp8:'em', fp4:'na', vram:48  },
             rtx3090:{ arch:'Ampere',    fp32:35.6, tf32:71,   bf16:142,  fp16:142,  int8:284,   fp8:'em', fp4:'na', vram:24  },
-            rtx4090:{ arch:'Ada',       fp32:82.6, tf32:165.2,bf16:330.3,fp16:330.3,int8:660.6, fp8:'na', fp4:'na', vram:24  },
+            rtx4090:{ arch:'Ada',       fp32:82.6, tf32:165.2,bf16:330.3,fp16:330.3,int8:660.6, fp8:660.6,fp4:'na', vram:24  },
             l40s:   { arch:'Ada',       fp32:91.6, tf32:183,  bf16:362,  fp16:362,  int8:733,   fp8:733,  fp4:'na', vram:48  },
             h100:   { arch:'Hopper',    fp32:67,   tf32:495,  bf16:989,  fp16:989,  int8:1979,  fp8:1979, fp4:'na', vram:80  },
             h200:   { arch:'Hopper',    fp32:67,   tf32:495,  bf16:989,  fp16:989,  int8:1979,  fp8:1979, fp4:'na', vram:141 },
@@ -1437,7 +1440,7 @@ sum = w0a0 + w3a3   <span style="color: var(--accent)">// 2&times; speed</span><
             // Build narrative
             const fmtPretty = {
                 fp32:'FP32', tf32:'TF32', bf16:'BF16', fp16:'FP16', int8:'INT8',
-                fp8:'FP8 (E4M3/E5M2)', fp4:'MX-FP4', sp_fp16:'FP16 + 2:4 sparse', sp_fp8:'FP8 + 2:4 sparse'
+                fp8:'FP8 (E4M3/E5M2)', fp4:'FP4 (MX-FP4 / NVFP4)', sp_fp16:'FP16 + 2:4 sparse', sp_fp8:'FP8 + 2:4 sparse'
             }[fmt];
 
             const lines = [];
@@ -1454,9 +1457,9 @@ sum = w0a0 + w3a3   <span style="color: var(--accent)">// 2&times; speed</span><
                            'You get the <em>memory and bandwidth</em> wins (model fits, decode tok/s up) but no compute uplift on prefill.</div>');
             } else {
                 lines.push('<div style="color:var(--text-secondary)">&bull; <strong>not supported</strong>. ' +
-                           ((fmt === 'fp4') ? 'MX-FP4 is Blackwell-only.' :
-                            (fmt === 'fp8') ? 'FP8 tensor cores are Hopper / L40S / Blackwell only.' :
-                            (fmt === 'sp_fp8') ? 'Sparse FP8 needs Hopper / L40S / Blackwell.' :
+                           ((fmt === 'fp4') ? 'FP4 (MX-FP4 / NVFP4) is Blackwell-only.' :
+                            (fmt === 'fp8') ? 'FP8 tensor cores require Ada / Hopper / Blackwell.' :
+                            (fmt === 'sp_fp8') ? 'Sparse FP8 needs Ada (L40S) / Hopper / Blackwell.' :
                             (fmt === 'tf32' || fmt === 'bf16') ? 'TF32 / BF16 tensor cores require Ampere or later.' :
                             'No tensor-core path on this generation.') +
                            ' Pick a different format or a newer GPU.</div>');
@@ -1469,13 +1472,13 @@ sum = w0a0 + w3a3   <span style="color: var(--accent)">// 2&times; speed</span><
             } else if (p.arch === 'Ampere') {
                 advice = 'Best point: BF16 training, AWQ-INT4 or BF16 serving. FP8 emulation gives bandwidth wins for KV-cache.';
             } else if (gpu === 'rtx4090') {
-                advice = 'No FP8 silicon. Use BF16 or AWQ-INT4 with vLLM/Ollama; do not rely on FP8 numbers in marketing.';
+                advice = 'FP8 tensor cores are present (~660 TFLOPS dense). No Transformer Engine; reach FP8 via CUTLASS/Triton/TensorRT-LLM kernels.';
             } else if (gpu === 'l40s') {
                 advice = 'FP8 capable Ada datacenter card &mdash; cheapest FP8 inference on a single-slot board.';
             } else if (p.arch === 'Hopper') {
                 advice = 'FP8 default for production serving. Combine FP8 weights with FP8 KV-cache for maximum decode tok/s.';
             } else if (p.arch === 'Blackwell') {
-                advice = 'MX-FP4 is the new floor for inference; pretraining stays at BF16/FP8. Use Transformer Engine 2.0.';
+                advice = 'MX-FP4 / NVFP4 is the new floor for inference; pretraining stays at BF16/FP8. Use Transformer Engine 2.0.';
             }
             lines.push('<div style="margin-top:0.5rem;color:var(--text-secondary)">&bull; ' + advice + '</div>');
 
@@ -1524,7 +1527,7 @@ sum = w0a0 + w3a3   <span style="color: var(--accent)">// 2&times; speed</span><
                 </tr>
                 <tr>
                     <td>Inference &mdash; decode (bandwidth-bound)</td>
-                    <td>FP8 weights + FP8 KV on H100; AWQ-INT4 on Ampere/Ada; MX-FP4 on Blackwell</td>
+                    <td>FP8 weights + FP8 KV on H100; AWQ-INT4 on Ampere/Ada; MX-FP4 / NVFP4 on Blackwell</td>
                     <td>Decode is bandwidth-bound; smaller weights = more tok/s. Quality holds at INT4 / FP4 for most models.</td>
                     <td>Ampere (INT4); Hopper (FP8); Blackwell (FP4)</td>
                 </tr>
@@ -1540,7 +1543,7 @@ sum = w0a0 + w3a3   <span style="color: var(--accent)">// 2&times; speed</span><
 
     <div class="callout">
         <div class="callout-label">The shortest correct answer</div>
-        <p>If you have <strong>Hopper</strong>, default to <strong>BF16 for training and FP8 for serving</strong>; turn on Transformer Engine and FP8 KV-cache. If you have <strong>Ampere or consumer Ada</strong>, default to <strong>BF16 for training and AWQ-INT4 for serving</strong>; FP8 is emulated or absent. If you have <strong>Blackwell</strong>, BF16 still wins for pretraining but MX-FP4 is the new floor for inference. <em>If you have Volta or Turing</em>, you are doing FP16 / INT8 only &mdash; treat anything newer in the marketing as unsupported.</p>
+        <p>If you have <strong>Hopper</strong>, default to <strong>BF16 for training and FP8 for serving</strong>; turn on Transformer Engine and FP8 KV-cache. If you have <strong>Ampere</strong>, default to <strong>BF16 for training and AWQ-INT4 for serving</strong>; FP8 is software-emulated only. <strong>Consumer Ada</strong> has FP8 silicon (~660 TFLOPS on a 4090) but no Transformer Engine &mdash; reach FP8 via CUTLASS / Triton / TensorRT-LLM. If you have <strong>Blackwell</strong>, BF16 still wins for pretraining but MX-FP4 / NVFP4 is the new floor for inference. <em>If you have Volta or Turing</em>, you are doing FP16 / INT8 only &mdash; treat anything newer in the marketing as unsupported.</p>
     </div>
 </section>
 
