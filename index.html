@@ -815,7 +815,7 @@
         </div>
         <div class="diagram-panel accent-border">
             <h4>Tensor core (V100 onwards)</h4>
-            <p>One fused 4&times;4&times;4 matrix-multiply-accumulate per cycle: <code>D = A&middot;B + C</code>. That's <strong>64 multiplies + 64 adds = 128 FLOPs per tensor core per cycle</strong>, in a single instruction. Eight tensor cores per SM gives 1024 FLOPs/cycle for tensor work &mdash; ~16&times; the FP32 path on the same silicon area.</p>
+            <p>One fused 4&times;4&times;4 matrix-multiply-accumulate per cycle: <code>D = A&middot;B + C</code>. That's <strong>64 multiplies + 64 adds = 128 FLOPs per tensor core per cycle</strong>, in a single instruction. Eight tensor cores per SM gives 1024 FLOPs/cycle for tensor work &mdash; 8&times; the FP32 path of a Volta SM (64 FP32 lanes = 128 FLOPs/cycle).</p>
         </div>
     </div>
 
@@ -824,7 +824,7 @@
 
     <div class="callout">
         <div class="callout-label">The headline number</div>
-        <p>V100 (2017): 125 TFLOPS FP16. B200 (2024): <strong>9 PFLOPS MX-FP4 (dense)</strong>. That's roughly 70&times; more dense matmul on a single die in seven years &mdash; almost entirely from tensor-core extensions, not from Moore's law.</p>
+        <p>V100 (2017): 125 TFLOPS FP16. B200 (2024): <strong>9 PFLOPS MX-FP4 (dense)</strong>. That's roughly 70&times; more dense matmul per package (B200 is two dies) in seven years &mdash; almost entirely from tensor-core extensions, not from Moore's law.</p>
     </div>
 </section>
 
@@ -836,7 +836,7 @@
     <div class="diagram-grid cols-2">
         <div class="diagram-panel accent-border">
             <h4>The hardware shape</h4>
-            <p><code>D = A &middot; B + C</code> where A is 4&times;4 FP16, B is 4&times;4 FP16, C/D are 4&times;4 FP32. <strong>16 FMAs per cycle per tensor core</strong> &mdash; on the FP16 inputs, accumulated into FP32 to preserve dynamic range.</p>
+            <p><code>D = A &middot; B + C</code> where A is 4&times;4 FP16, B is 4&times;4 FP16, C/D are 4&times;4 FP32. <strong>64 FMAs per cycle per tensor core</strong> &mdash; on the FP16 inputs, accumulated into FP32 to preserve dynamic range.</p>
         </div>
         <div class="diagram-panel accent-border">
             <h4>Headline throughput</h4>
@@ -894,7 +894,7 @@
     </div>
 
     <h3>The T4 inference workhorse</h3>
-    <p>The T4 became the workhorse cloud-inference card of the late 2010s: <strong>130 TOPS INT8 in a 75 W single-slot PCIe envelope</strong>, no extra power connector, ~$2k. AWS, GCP, and Azure all standardised on it for serving ResNet, BERT, and early translation models.</p>
+    <p>The T4 became the workhorse cloud-inference card of the late 2010s: <strong>130 TOPS INT8 in a 70 W single-slot PCIe envelope</strong>, no extra power connector, ~$2k. AWS, GCP, and Azure all standardised on it for serving ResNet, BERT, and early translation models.</p>
 
     <div class="diagram-grid cols-2">
         <div class="diagram-panel accent-border">
@@ -939,7 +939,7 @@
     </div>
 
     <h3>2:4 structured sparsity</h3>
-    <p>Every 4-element block of weights can have at most 2 zeros, encoded in a 2-bit mask. The tensor core skips the zeros: <strong>2&times; throughput on the same physical units</strong>. The sparsity has to be baked in at training time (sparse fine-tune); the hardware can't extract it for you.</p>
+    <p>Every 4-element block of weights must have at least 2 zeros, encoded in a 2-bit mask. The tensor core skips the zeros: <strong>2&times; throughput on the same physical units</strong>. The sparsity has to be baked in at training time (sparse fine-tune); the hardware can't extract it for you.</p>
 
     <h3>A100 SXM4 headline numbers</h3>
     <div class="table-wrap">
@@ -969,11 +969,11 @@
     <div class="diagram-grid cols-2">
         <div class="diagram-panel accent-border">
             <h4>E4M3 &mdash; the weights/activation format</h4>
-            <p>1 sign + 4 exp + 3 mantissa. Range ~&plusmn;448, 7 bits of fractional precision. Used for forward activations and weight tensors where range is bounded.</p>
+            <p>1 sign + 4 exp + 3 mantissa. Range ~&plusmn;448, 3 mantissa bits. Used for forward activations and weight tensors where range is bounded.</p>
         </div>
         <div class="diagram-panel accent-border">
             <h4>E5M2 &mdash; the gradient format</h4>
-            <p>1 sign + 5 exp + 2 mantissa. Range ~&plusmn;57344, much wider but only 4 bits of fraction. Used for backward gradients, which span many orders of magnitude.</p>
+            <p>1 sign + 5 exp + 2 mantissa. Range ~&plusmn;57344, much wider but only 2 mantissa bits. Used for backward gradients, which span many orders of magnitude.</p>
         </div>
     </div>
     <p>Both are 8 bits, so <strong>throughput is 2&times; BF16</strong>. The E4M3/E5M2 split mirrors how the network actually uses tensors: forward activations are bounded, gradients are heavy-tailed.</p>
@@ -1015,7 +1015,7 @@
         </div>
         <div class="diagram-panel accent-border">
             <h4>RTX 4090 / 4080 (consumer Ada)</h4>
-            <p>FP8 tensor cores are present (~660 TFLOPS dense FP8 on a 4090, 2&times; BF16) &mdash; AD102 silicon is the same family as L40S. What consumer Ada lacks is the Transformer Engine software stack and full datacenter driver/library support; you can hit FP8 via CUTLASS / Triton / TensorRT-LLM kernels directly.</p>
+            <p>FP8 tensor cores are present (~660 TFLOPS dense FP8 on a 4090 with FP16 accumulate, 330 with FP32 accumulate &mdash; 2&times; BF16's 165) &mdash; AD102 silicon is the same family as L40S. What consumer Ada lacks is the Transformer Engine software stack and full datacenter driver/library support; you can hit FP8 via CUTLASS / Triton / TensorRT-LLM kernels directly.</p>
         </div>
     </div>
 
@@ -1030,7 +1030,7 @@
 
     <div class="callout">
         <div class="callout-label">The naming gotcha</div>
-        <p>"4th-gen tensor cores" appears in both Ada and Hopper marketing &mdash; but a 4090 and an H100 do not run the same kernels at the same speed for the same instructions. CUTLASS, vLLM, and TensorRT-LLM all carry separate kernel paths for AD102 vs GH100. Ada is best thought of as "Hopper-minus-FP8-minus-async".</p>
+        <p>"4th-gen tensor cores" appears in both Ada and Hopper marketing &mdash; but a 4090 and an H100 do not run the same kernels at the same speed for the same instructions. CUTLASS, vLLM, and TensorRT-LLM all carry separate kernel paths for AD102 vs GH100. Ada is best thought of as "Hopper-minus-async (no WGMMA, TMA or clusters)".</p>
     </div>
 </section>
 
@@ -1075,7 +1075,7 @@
 
     <div class="callout">
         <div class="callout-label">The line of doublings</div>
-        <p>Volta FP16 (125) &rarr; A100 BF16 (312) &rarr; H100 FP8 (1979) &rarr; B200 MX-FP4 (9000). Each step is roughly 2&ndash;3&times;, and roughly half of each step came from a new tensor-core format rather than from more transistors.</p>
+        <p>Volta FP16 (125) &rarr; A100 BF16 (312) &rarr; H100 FP8 (1979) &rarr; B200 MX-FP4 (9000). Each step is roughly 2.5&ndash;6&times; (312/125, 1979/312, 9000/1979), and roughly half of each step came from a new tensor-core format rather than from more transistors.</p>
     </div>
 </section>
 
@@ -1242,14 +1242,14 @@
                 </tr>
                 <tr>
                     <td><strong>Ada (AD102, CC 8.9)</strong></td>
-                    <td>same shapes as Ampere; FP8 only on L40S</td>
+                    <td>same shapes as Ampere, plus FP8 (m16n8k32) on all Ada</td>
                     <td><code>mma.sync</code> (no <code>wgmma</code>)</td>
                     <td>CUTLASS 2.x / cuBLASLt</td>
                 </tr>
                 <tr>
                     <td><strong>Blackwell (B200, CC 10.0)</strong></td>
-                    <td>64&times;N&times;32 for MX formats; warp-group async + UMMA on B200</td>
-                    <td><code>wgmma</code> family + new MX variants</td>
+                    <td>64&times;N&times;32 for MX formats; single-thread-issued async UMMA, accumulator in Tensor Memory</td>
+                    <td><code>tcgen05.mma</code> (replaces <code>wgmma</code>)</td>
                     <td>CUTLASS 3.x / Transformer Engine 2.0 / Triton</td>
                 </tr>
             </tbody>
@@ -1379,8 +1379,8 @@ sum = w0a0 + w3a3   <span style="color: var(--accent)">// 2&times; speed</span><
             t4:     { arch:'Turing',    fp32:8.1,  tf32:'na', bf16:'na', fp16:65,   int8:130,   fp8:'na', fp4:'na', vram:16  },
             a100:   { arch:'Ampere',    fp32:19.5, tf32:156,  bf16:312,  fp16:312,  int8:624,   fp8:'em', fp4:'na', vram:80  },
             a40:    { arch:'Ampere',    fp32:37.4, tf32:74.8, bf16:149.7,fp16:149.7,int8:299.4, fp8:'em', fp4:'na', vram:48  },
-            rtx3090:{ arch:'Ampere',    fp32:35.6, tf32:71,   bf16:142,  fp16:142,  int8:284,   fp8:'em', fp4:'na', vram:24  },
-            rtx4090:{ arch:'Ada',       fp32:82.6, tf32:165.2,bf16:330.3,fp16:330.3,int8:660.6, fp8:660.6,fp4:'na', vram:24  },
+            rtx3090:{ arch:'Ampere',    fp32:35.6, tf32:35.6, bf16:71,   fp16:142,  int8:284,   fp8:'em', fp4:'na', vram:24  },
+            rtx4090:{ arch:'Ada',       fp32:82.6, tf32:82.6, bf16:165.2,fp16:330.3,int8:660.6, fp8:660.6,fp4:'na', vram:24  },
             l40s:   { arch:'Ada',       fp32:91.6, tf32:183,  bf16:362,  fp16:362,  int8:733,   fp8:733,  fp4:'na', vram:48  },
             h100:   { arch:'Hopper',    fp32:67,   tf32:495,  bf16:989,  fp16:989,  int8:1979,  fp8:1979, fp4:'na', vram:80  },
             h200:   { arch:'Hopper',    fp32:67,   tf32:495,  bf16:989,  fp16:989,  int8:1979,  fp8:1979, fp4:'na', vram:141 },
